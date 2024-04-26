@@ -16,8 +16,25 @@ public class Dispatcher {
     private static StringBuilder msg;
     private static long currentTime;
     static List<Node> nodes = new ArrayList<>();
-
     static TimeProvider timeProvider = new SimulatedTimeProvider();
+
+    public static List<Node> getNodes() {
+        return nodes;
+    }
+
+    public static void setNodes(List<Node> nodes) {
+        Dispatcher.nodes = nodes;
+    }
+
+    public static boolean isIsSameSrcTask() {
+        return isSameSrcTask;
+    }
+
+    public static void setIsSameSrcTask(boolean isSameSrcTask) {
+        Dispatcher.isSameSrcTask = isSameSrcTask;
+    }
+
+    static boolean isSameSrcTask = false;
 
     public static boolean isOutput_instructions() {
         return output_instructions;
@@ -317,7 +334,7 @@ public class Dispatcher {
                 continue;
             }
 
-            if (nextTask.getTEUs() + tai.getTEUs() <= tr.getMaxTEU() &&
+            if (tai.getTEUs() <= tr.getRemainingTEU() &&
                     nextTask.getSrcNode().equals(tai.getSrcNode()) &&
                     nextTask.getSubqueueID() == tai.getSubqueueID()) {
                 if (nextTask.getSrcNode().equals(nextTask.getQuayNode()) &&
@@ -380,11 +397,17 @@ public class Dispatcher {
                 reWorkQueue.setTasks(workQueue.getTasks());
             }
         }
-        if (reWorkQueue.getTasks().size()!=0) {
+
+        if (isSameSrcTask){
             appendSrcSameSmallContainer(nextTask, tr);
         }
         else {
-            appendNextTask(nextTask, tr);
+            if (reWorkQueue.getTasks().size() != 0) {
+                appendSrcSameSmallContainer(nextTask, tr);
+                if (nextTask.getMergedTask()==null) appendNextTask(nextTask,tr);
+            } else {
+                appendNextTask(nextTask, tr);
+            }
         }
     }
 

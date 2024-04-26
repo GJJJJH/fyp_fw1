@@ -146,10 +146,10 @@ public class SA_Map {
 
 
 
-    public double fitness(Network nw) {
+    public double fitness(Network nw,Boolean isSameSrcTask) {
         Network emulation_nw = cloneNetwork(nw);
         Emulator emulator = new Emulator();
-        Emulator.startEmulator(emulation_nw,Emulator.getEmuEvents());
+        Emulator.startEmulator(emulation_nw,Emulator.getEmuEvents(),isSameSrcTask);
         return Emulator.emuSolution.getTotalCraneWait();
     }
 

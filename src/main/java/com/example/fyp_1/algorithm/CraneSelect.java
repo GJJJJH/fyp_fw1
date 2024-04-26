@@ -106,22 +106,22 @@ public class CraneSelect {
         }
 
         //if (fp.getTr().getCurrentPosition() == fp.getLocation()) {
-            fp2t.setTruck(fp.getTr());
-            Task task = q.getTasks().get(0);
-            fp2t.setTask(task);
+        fp2t.setTruck(fp.getTr());
+        Task task = q.getTasks().get(0);
+        fp2t.setTask(task);
 
-            if (task.getSrcNode().getType() == task.getDstNode().getType()) {
-                fp2t.setTimeqc(-1);
-            } else if (task.getSrcNode().getType() == NodeType.QUAY_CRANE) {
-                long time = nw.getTravellingTimePassingNodes(fp.getLocation(), task.getSrcNode());
-                fp2t.setTimeqc(fp.getTime() + nw.getTravellingTimePassingNodes(fp.getLocation(), task.getSrcNode()));
-            } else {
-                long timeToSrc = nw.getTravellingTimePassingNodes(fp.getLocation(), task.getSrcNode());
-                long timeToDst = nw.getTravellingTimePassingNodes(task.getSrcNode(), task.getDstNode());
-                fp2t.setTimeqc(fp.getTime() + timeToSrc + task.getSrcNode().getAverageLoadTime() + timeToDst);
-            }
+        if (task.getSrcNode().getType() == task.getDstNode().getType()) {
+            fp2t.setTimeqc(-1);
+        } else if (task.getSrcNode().getType() == NodeType.QUAY_CRANE) {
+            long time = nw.getTravellingTimePassingNodes(fp.getLocation(), task.getSrcNode());
+            fp2t.setTimeqc(fp.getTime() + nw.getTravellingTimePassingNodes(fp.getLocation(), task.getSrcNode()));
+        } else {
+            long timeToSrc = nw.getTravellingTimePassingNodes(fp.getLocation(), task.getSrcNode());
+            long timeToDst = nw.getTravellingTimePassingNodes(task.getSrcNode(), task.getDstNode());
+            fp2t.setTimeqc(fp.getTime() + timeToSrc + task.getSrcNode().getAverageLoadTime() + timeToDst);
+        }
 
-            fp2t.setTimesrc(fp.getTime() + nw.getTravellingTimePassingNodes(fp.getLocation(), task.getSrcNode()));
+        fp2t.setTimesrc(fp.getTime() + nw.getTravellingTimePassingNodes(fp.getLocation(), task.getSrcNode()));
 
     }
 
@@ -175,7 +175,7 @@ public class CraneSelect {
             Task ta = new Task();
             if (nTask==null) {
                 if (!truck.isAssigned()) {
-                continue;
+                    continue;
                 }
                 ta = truck.getCurrentTask();
             }else {
@@ -380,11 +380,11 @@ public class CraneSelect {
                 Task task = tasks.get(j);
 
                 List<Task> splitTasks = new ArrayList<>();
-                if (task.getTEUs() >= tr.getMaxTEU()) {
-                    splitTasks = splitTask(task, tr.getRemainingTEU());
-                } else {
+//                if (task.getTEUs() >= tr.getMaxTEU()) {
+//                    splitTasks = splitTask(task, tr.getRemainingTEU());
+//                } else {
                     splitTasks.add(task);
-                }
+//                }
 
                 boolean splitTaskStatus = false;
                 if (splitTasks.size()>1){

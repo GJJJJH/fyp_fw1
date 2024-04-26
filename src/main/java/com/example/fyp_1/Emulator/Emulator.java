@@ -20,6 +20,7 @@ public class Emulator {
     public static boolean outputEventTriggerInfo = true;
     public static boolean outputInstructionHandling = true;
     public static int eventNum = 0;
+    private static long FinalTime;
 
     public Network getNw() {
         return nw;
@@ -147,7 +148,7 @@ public class Emulator {
         }
     }
 
-    public static double startEmulator(String netfile, int numOfTrucks) {
+    public static double startEmulator(String netfile, int numOfTrucks,Boolean isSameSrcTask) {
         initialiseEmulator();
 
         NetworkReader networkReader = new NetworkReader(netfile);
@@ -162,16 +163,16 @@ public class Emulator {
 
         nw.addTrucks(2, numOfTrucks);
         double ret;
-        ret = startEmulator();
+        ret = startEmulator(isSameSrcTask);
         nw = null;
         return ret;
     }
 
-    public static double startEmulator(Network simNetwork, List<PortEvent> emuEventsF) {
+    public static double startEmulator(Network simNetwork, List<PortEvent> emuEventsFi, Boolean isSameSrcTask) {
         initialiseEmulator();
         nw = simNetwork;
-        emuEvents = new ArrayList<>(emuEventsF);
-        return startEmulator();
+        emuEvents = new ArrayList<>(emuEventsFi);
+        return startEmulator(isSameSrcTask);
     }
 
     public static void sleep(int seconds) {
@@ -183,11 +184,12 @@ public class Emulator {
         }
     }
 
-    private static double startEmulator() {
+    private static double startEmulator(Boolean isSameSrcTask) {
         Dispatcher.setNw(nw);
         Dispatcher.setTimeProvider(new SimulatedTimeProvider());
         SA_Map sam = new SA_Map();
         Dispatcher.setDispatcher_sa_map(sam);
+        Dispatcher.setIsSameSrcTask(isSameSrcTask);
 
         System.out.println(" \n SIMULATION START:\n");
         for (Truck truck : nw.getTrucks()) {
@@ -207,7 +209,8 @@ public class Emulator {
             instructions.clear();
             eventNum++;
         }
-        double ret = outputAnalysis(emuSolution, nw);
+        outputAnalysis(emuSolution, nw);
+        double ret = FinalTime;
         emuSolution = null;
         return ret;
     }
@@ -223,6 +226,8 @@ public class Emulator {
     private static void initialiseEmulator() {
         containerQueues.clear();
         currentSimulationTime = 0;
+        emuEvents = null;
+        eventNum = 0;
         if (emuSolution != null) {
             emuSolution = null;
         }
@@ -302,6 +307,7 @@ public class Emulator {
 //        sol.setTotalCraneWait(ftSum);
 //        System.out.println("Total crane busy rate: " + calculateBusyRate(btSum, ftSum));
         System.out.println("Total travelling time: " + sol.getTotalTravellingTime());
+        FinalTime = currentSimulationTime;
         System.out.println("Final travelling time: " + currentSimulationTime);
         System.out.println("Result data: " + sol.getTotalTravellingTime() + '\t' + travellingTimeUpperbound() + '\t' + currentSimulationTime);
     }

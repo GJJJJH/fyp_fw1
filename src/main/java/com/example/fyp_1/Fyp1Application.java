@@ -10,37 +10,26 @@ public class Fyp1Application {
 
     public static void main(String[] args) {
         String filePath = "C:/Users/xxxx/IdeaProjects/fyp_1/network.txt";
-        NetworkReader networkReader = new NetworkReader(filePath);
+        NetworkReader networkReaderT = new NetworkReader(filePath);
+        Network networkT = networkReaderT.parseData();
+        networkT.updateNodesWithAverageLoadUnloadTime();
 
-        Network network = networkReader.parseData();
-        network.updateNodesWithAverageLoadUnloadTime();
+        NetworkReader networkReaderF = new NetworkReader(filePath);
+        Network networkF = networkReaderF.parseData();
+        networkF.updateNodesWithAverageLoadUnloadTime();
 
-//        System.out.println("\n Network.task:");
-//        for (Task task : network.getTasks()){
-//            System.out.println("Task: "+ task.getContainerID() + "ap"+ task.getSrcAp().getTimeStart() + " ds" +task.getDstAp().getTimeFinish());
-//        }
+        List<PortEvent> emuEventsT = networkReaderT.emuEvents();
+        List<PortEvent> emuEventsF = networkReaderF.emuEvents();
 
+        double resultT = Emulator.startEmulator(networkT,emuEventsT,true);
+        double resultF = Emulator.startEmulator(networkF,emuEventsF,false);
+        boolean isTorF = (resultT> resultF) ? false: true;
 
-//        //打印工作队列的信息
-//        System.out.println("\n NODE:");
-//        for (Node node : network.getNodes()){
-//            System.out.println("NODE: "+ node.getName() + ", loadTime: " +node.getAverageLoadTime() +", unloadTime: " + node.getAverageUnloadTime() );
-//        }
-
-        //System.out.println(network.toString());
-
-
-        List<PortEvent> emuEvents = networkReader.emuEvents();
-
-        double result = Emulator.startEmulator(network,emuEvents);
-
-        System.out.println("Simulated result：" + result);
-
-
-
-
-
-
+        System.out.println("\n-----------------------------------------");
+        System.out.println("\nSameSrcTask: " + isTorF + "\n");
+        if (isTorF) System.out.println("Final Simulate Time: " + (int) resultT);
+        else System.out.println("Final Simulate Time: " + (int) resultF);
+        System.out.println("-----------------------------------------");
     }
 
 
