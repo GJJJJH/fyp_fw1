@@ -145,7 +145,7 @@ public class Dispatcher {
 
     private static void notifyTrucksInQueues(PortEvent pe, List<Instruction> instructions, List<Node> nodes) {
         List<Truck> craneQueue = pe.getEventLocation().getTruckQueue();
-        for (int i = 0; i < craneQueue.size(); i+=2) {
+        for (int i = 0; i < craneQueue.size(); i+=1) {
             Truck truck = craneQueue.get(i);
             Task task = truck.getCurrentTask();
             if (pe.getEventLocation().getType() == NodeType.QUAY_CRANE && !Emulator.topOfContainerQueue(task)) {
@@ -155,7 +155,7 @@ public class Dispatcher {
             Task cuTask =  pe.getTruck().getCurrentTask();
             cuTask.setDispatchTime(currentTime);
             //System.out.println("Truck " + pe.getTruck().getTruckID() + " with " + nw.taskToString(pe.getTruck().getCurrentTask()) + " is notified");
-            craneQueue.remove(i);
+            craneQueue.remove(truck);
 
             Instruction inst = null;
             if(nodes.get(pe.getEventLocation().getNode_index()).getCurrentTask()!=null ){
@@ -620,43 +620,62 @@ public class Dispatcher {
         Truck tr = pe.getTruck();
         Task currentTask = tr.getCurrentTask();
         pe.getEventLocation().setCurrentTask(null);
+        pe.getEventLocation().getTruckQueue().remove(tr);
 
-        if (currentTask.getMergedTask() != null && pe.getTime() == currentTask.getUnloadTime()+currentTask.getDstArrival()) {
-            Task mergedTask = currentTask.getMergedTask();
-            if (mergedTask.getDstNode().equals(currentTask.getDstNode())) {
-                currentTask.setMergedTask(null);
+        if (currentTask!=null) {
+            if (currentTask.getMergedTask() != null
+                    && pe.getEventLocation().getCurrentTask() != null
+                    && pe.getTime() == currentTask.getUnloadTime() + currentTask.getDstArrival()) {
+                Task mergedTask = currentTask.getMergedTask();
+                if (mergedTask.getDstNode().equals(currentTask.getDstNode())) {
+                    currentTask.setMergedTask(null);
+                    tr.setPreTask(null);
+                    Instruction inst = new Instruction(InstructionType.TAKE_CONTAINER_FROM_TRUCK, tr, mergedTask.getDstNode(), mergedTask);
+                    nodes.get(mergedTask.getDstNode().getNode_index()).setCurrentTask(null);
+                    instructions.add(inst);
+                    return;
+                } else {
+                    Instruction inst = new Instruction(InstructionType.LOADED_TO_YARD_CRANE, tr, mergedTask.getDstNode(), mergedTask);
+                    nodes.get(mergedTask.getDstNode().getNode_index()).setCurrentTask(null);
+                    instructions.add(inst);
+                    return;
+                }
+            } else if (currentTask.getMergedTask() == null
+                    && tr.getPreTask() != currentTask
+                    && tr.getPreTask() != null
+                    && pe.getTime() == currentTask.getUnloadTime() + currentTask.getDstArrival()) {
+                tr.getPreTask().setMergedTask(null);
+                Task fTask = tr.getPreTask();
                 tr.setPreTask(null);
-                Instruction inst = new Instruction(InstructionType.TAKE_CONTAINER_FROM_TRUCK, tr, mergedTask.getDstNode(), mergedTask);
-                nodes.get(mergedTask.getDstNode().getNode_index()).setCurrentTask(null);
+                Instruction inst = new Instruction(InstructionType.LOADED_TO_YARD_CRANE, tr, fTask.getDstNode(), fTask);
+                nodes.get(fTask.getDstNode().getNode_index()).setCurrentTask(null);
+                instructions.add(inst);
+                return;
+            } else if (currentTask.getMergedTask() == null && tr.getPreTask() != null && pe.getTime() != currentTask.getUnloadTime() + currentTask.getDstArrival()) {
+                Task fTask = tr.getPreTask();
+                tr.setPreTask(null);
+                Instruction inst = new Instruction(InstructionType.TAKE_CONTAINER_FROM_TRUCK, tr, fTask.getDstNode(), fTask);
+                nodes.get(fTask.getDstNode().getNode_index()).setCurrentTask(null);
                 instructions.add(inst);
                 return;
             }
             else {
-                Instruction inst = new Instruction(InstructionType.LOADED_TO_YARD_CRANE, tr, mergedTask.getDstNode(), mergedTask);
-                nodes.get(mergedTask.getDstNode().getNode_index()).setCurrentTask(null);
-                instructions.add(inst);
-                return;
+                getInstruction(tr, timeProvider.getCurrentTime(), instructions);
+                Instruction insi = instructions.get(instructions.size() - 1);
+                if (insi.getInsCode() != InstructionType.HOLD) {
+                    tr.setStatus(TruckStatus.TRUCK_DEADHEADING);
+                    tr.setCurrentTask(insi.getTask());
+                    tr.getCurrentTask().setDispatchTime(timeProvider.getCurrentTime());
+                    tr.getCurrentTask().setDispatchLocation(tr.getCurrentPosition());
+                    if (tr.getCurrentTask().getMergedTask() != null) {
+                        tr.getCurrentTask().getMergedTask().setDispatchLocation(tr.getCurrentPosition());
+                        tr.getCurrentTask().getMergedTask().setDispatchTime(tr.getCurrentTask().getDispatchTime());
+                    }
+                }
+                instructionToString(insi);
             }
-        }else if (currentTask.getMergedTask() == null
-                && tr.getPreTask()!=currentTask
-                && tr.getPreTask()!=null
-                && pe.getTime() == currentTask.getUnloadTime()+currentTask.getDstArrival()) {
-            tr.getPreTask().setMergedTask(null);
-            Task fTask = tr.getPreTask();
-            tr.setPreTask(null);
-            Instruction inst = new Instruction(InstructionType.LOADED_TO_YARD_CRANE, tr, fTask.getDstNode(), fTask);
-            nodes.get(fTask.getDstNode().getNode_index()).setCurrentTask(null);
-            instructions.add(inst);
-            return;
-        }else if (currentTask.getMergedTask() == null && tr.getPreTask()!=null && pe.getTime() != currentTask.getUnloadTime()+currentTask.getDstArrival()){
-            Task fTask = tr.getPreTask();
-            tr.setPreTask(null);
-            Instruction inst = new Instruction(InstructionType.TAKE_CONTAINER_FROM_TRUCK, tr, fTask.getDstNode(), fTask);
-            nodes.get(fTask.getDstNode().getNode_index()).setCurrentTask(null);
-            instructions.add(inst);
-            return;
-        }
-        else {
+        }else if (nw.getTasks()!=null){
+            pe.getEventLocation().getTruckQueue().remove(tr);
             getInstruction(tr, timeProvider.getCurrentTime(), instructions);
             Instruction insi = instructions.get(instructions.size() - 1);
             if (insi.getInsCode() != InstructionType.HOLD) {
@@ -679,15 +698,19 @@ public class Dispatcher {
 
         if(task.getDstNode() == pe.getEventLocation().getCurrentTask().getDstNode()){
             Node dst = task.getDstNode();
-            if (dst.getCurrentTask() != null || !dst.getTruckQueue().isEmpty()) {
+            if (dst.getCurrentTask() != null ) {
                 Instruction inst = new Instruction(InstructionType.HOLD, tr, dst, task);
                 instructions.add(inst);
                 instructionToString(inst);
                 return;
-            }else if (task.getMergedTask() != null && task.getMergedTask().status() <= 5 && pe.getTime() == task.getLoadTime()+task.getDispatchTime()) {
+            }else if (task.getMergedTask() != null
+                    && task.getMergedTask().status() <= 5
+                    && pe.getTime() == task.getLoadTime()+task.getDispatchTime()) {
                 task.getSrcNode().setCurrentTask(null);
                 tr.setPreTask(task);
+                tr.setCurrentTask(tr.getCurrentTask().getMergedTask());
                 if (task.getMergedTask().getSrcNode().equals(task.getSrcNode())) {
+                    task.getMergedTask().getSrcNode().getTruckQueue().add(tr);
                     Instruction inst = new Instruction(InstructionType.PUT_CONTAINER_TO_TRUCK, tr, task.getMergedTask().getSrcNode(), task.getMergedTask());
                     nodes.get(task.getSrcNode().getNode_index()).setCurrentTask(null);
                     instructions.add(inst);
@@ -706,9 +729,7 @@ public class Dispatcher {
                     return;
                 }
             }else if(tr.getPreTask()!=null) {
-
                 Task preTask = tr.getPreTask();
-
                 long timeToCurrentTaskDstNode = nw.getTravellingTimePassingNodes(tr.getCurrentPosition(), tr.getCurrentTask().getDstNode());
                 long timeToPreTaskDstNode = nw.getTravellingTimePassingNodes(tr.getCurrentPosition(), preTask.getDstNode());
 
@@ -737,14 +758,18 @@ public class Dispatcher {
                 }
             }
             else {
+                task.getSrcNode().getTruckQueue().remove(tr);
                 if (tr.getCurrentTask().getQuayNode() == tr.getCurrentTask().getSrcNode()) {
+                    task.getSrcNode().setCurrentTask(null);
                     Instruction inst = new Instruction(InstructionType.LOADED_TO_YARD_CRANE, tr, task.getDstNode(), task);
                     nodes.get(task.getSrcNode().getNode_index()).setCurrentTask(null);
                     instructions.add(inst);
                     return;
 
                 } else {
-                    Instruction inst = new Instruction(InstructionType.LOADED_TO_QUAY_CRANE, tr, pe.getEventLocation().getCurrentTask().getDstNode(), pe.getEventLocation().getCurrentTask());
+                    Task task1 = pe.getEventLocation().getCurrentTask();
+                    task.getSrcNode().setCurrentTask(null);
+                    Instruction inst = new Instruction(InstructionType.LOADED_TO_QUAY_CRANE, tr, task1.getDstNode(), task1);
                     nodes.get(task.getSrcNode().getNode_index()).setCurrentTask(null);
                     instructions.add(inst);
                     return;
@@ -798,13 +823,13 @@ public class Dispatcher {
                 nextTask.getSrcNode().getQueueTasks().add(nextTask);
                 nextTask.getSrcNode().getTruckQueue().add(tr);
                 nextTask.getSrcNode().getQueueTasks().add(nextTask);
-                nextTask.getSrcNode().getTruckQueue().add(tr);
                 Instruction inst = new Instruction(InstructionType.DEADHEAD_TO_QUAY_CRANE,
                         tr, nextTask.getSrcNode(), nextTask);
                 insts.add(inst);
                 return;
             } else {
                 nextTask.getSrcNode().getQueueTasks().add(nextTask);
+                nextTask.getSrcNode().getTruckQueue().add(tr);
                 nextTask.getSrcNode().getTruckQueue().add(tr);
                 Instruction inst = new Instruction(InstructionType.DEADHEAD_TO_YARD_CRANE,
                         tr, nextTask.getSrcNode(), nextTask);

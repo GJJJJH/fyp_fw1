@@ -12,6 +12,25 @@ public class Network {
     private List<Truck> trucks;
     private List<WorkQueue> workQueues;
 
+    public List<WorkQueue> getQCworkQueues() {
+        return QCworkQueues;
+    }
+
+    public void setQCworkQueues(List<WorkQueue> QCworkQueues) {
+        this.QCworkQueues = QCworkQueues;
+    }
+
+    public List<WorkQueue> getYCworkQueues() {
+        return YCworkQueues;
+    }
+
+    public void setYCworkQueues(List<WorkQueue> YCworkQueues) {
+        this.YCworkQueues = YCworkQueues;
+    }
+
+    private List<WorkQueue> QCworkQueues;
+    private List<WorkQueue> YCworkQueues;
+
 
 
     public Network() {
@@ -34,6 +53,8 @@ public class Network {
         this.nodesTimes = new ArrayList<>(network.getNodesTimes());
         this.trucks = new ArrayList<>(network.getTrucks());
         this.workQueues = new ArrayList<>(network.getWorkQueues());
+        this.QCworkQueues = new ArrayList<>(network.getQCworkQueues());
+        this.YCworkQueues = new ArrayList<>(network.getYCworkQueues());
     }
 
     public void setNodes(List<Node> nodes) {
@@ -262,6 +283,25 @@ public class Network {
         return matchingTasks;
     }
 
+    public List<Task> findTaskByNodeSrcQ(String src) {
+        List<Task> matchingTasks = new ArrayList<>();
+        for (Task task : tasks) {
+            if (task.getSrcNode().getName().equals(src)&&task.getSrcNode().getType() == NodeType.QUAY_CRANE) {
+                matchingTasks.add(task);
+            }
+        }
+        return matchingTasks;
+    }
+    public List<Task> findTaskByNodeSrcY(String src) {
+        List<Task> matchingTasks = new ArrayList<>();
+        for (Task task : tasks) {
+            if (task.getSrcNode().getName().equals(src)&&task.getSrcNode().getType() == NodeType.YARD_CRANE) {
+                matchingTasks.add(task);
+            }
+        }
+        return matchingTasks;
+    }
+
 
     // 估算任务到达指定节点的时间
     public long estimatePowArrival(Task t) {
@@ -346,31 +386,24 @@ public class Network {
 
     // 合并任务到目标工作队列中
     public void mergeToQueue(List<WorkQueue> dstQueues, List<WorkQueue> srcQueues) {
-        // 遍历源工作队列列表
         for (int srcIndex = 0; srcIndex < srcQueues.size(); srcIndex++) {
             WorkQueue srcQueue = srcQueues.get(srcIndex);
-            // 遍历目标工作队列列表
             for (int dstIndex = 0; dstIndex < dstQueues.size(); dstIndex++) {
                 WorkQueue dstQueue = dstQueues.get(dstIndex);
-                // 如果目标工作队列与源工作队列名称相同，则合并工作队列
                 if (dstQueue.getQueueName().equals(srcQueue.getQueueName())) {
                     System.out.println(dstQueue.getQueueName() + " will be merged");
-                    // 将源工作队列中的任务添加到目标工作队列中
                     for (int i = 0; i < srcQueue.getTasks().size(); i++) {
                         Task task = srcQueue.getTasks().get(i);
                         task.setSeq(dstQueue.getTasks().size());
                         dstQueue.getTasks().add(task);
                     }
-                    // 清空源工作队列中的任务
                     srcQueue.getTasks().clear();
-                    // 将源工作队列设为null
                     srcQueues.set(srcIndex, null);
                     break;
                 }
             }
         }
 
-        // 将剩余的源工作队列添加到目标工作队列列表中
         for (int srcIndex = 0; srcIndex < srcQueues.size(); srcIndex++) {
             WorkQueue srcQueue = srcQueues.get(srcIndex);
             if (srcQueue != null) {
@@ -378,7 +411,6 @@ public class Network {
                 srcQueue = null;
             }
         }
-        // 合并任务
         this.mergeTasks();
     }
 

@@ -9,7 +9,7 @@ import java.util.List;
 public class Fyp1Application {
 
     public static void main(String[] args) {
-        String filePath = "C:/Users/xxxx/IdeaProjects/fyp_1/network.txt";
+        String filePath = "C:/Users/xxxx/IdeaProjects/fyp_1/test2-3.txt";
         NetworkReader networkReaderT = new NetworkReader(filePath);
         Network networkT = networkReaderT.parseData();
         networkT.updateNodesWithAverageLoadUnloadTime();
@@ -22,14 +22,14 @@ public class Fyp1Application {
         List<PortEvent> emuEventsF = networkReaderF.emuEvents();
 
         double resultT = Emulator.startEmulator(networkT,emuEventsT,true);
-        double resultF = Emulator.startEmulator(networkF,emuEventsF,false);
-        boolean isTorF = (resultT> resultF) ? false: true;
-
-        System.out.println("\n-----------------------------------------");
-        System.out.println("\nSameSrcTask: " + isTorF + "\n");
-        if (isTorF) System.out.println("Final Simulate Time: " + (int) resultT);
-        else System.out.println("Final Simulate Time: " + (int) resultF);
-        System.out.println("-----------------------------------------");
+        //double resultF = Emulator.startEmulator(networkF,emuEventsF,false);
+//        boolean isTorF = (resultT> resultF) ? false: true;
+//
+//        System.out.println("\n-----------------------------------------");
+//        System.out.println("\nSameSrcTask: " + isTorF + "\n");
+//        if (isTorF) System.out.println("Final Simulate Time: " + (int) resultT);
+//        else System.out.println("Final Simulate Time: " + (int) resultF);
+//        System.out.println("-----------------------------------------");
     }
 
 

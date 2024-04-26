@@ -9,6 +9,7 @@ import java.util.List;
 
 public class CraneSelect {
 
+    static boolean isSrcTaskFiniesh = false;
     public static void printTruckInfo(List<TruckFreePoint> tfps) {
         System.out.println("Truck\tLocation\tTime");
         for (TruckFreePoint tfp : tfps) {
@@ -269,75 +270,6 @@ public class CraneSelect {
         return sb.toString();
     }
 
-//    public static String findTaskMinWait(Network nw, Truck tr, StringBuilder msg) {
-//        StringBuilder oss = new StringBuilder();
-//        oss.append("--- starting algorithm ---\n");
-//        oss.append("...desired_wq_trucks: ").append("8").append("\n");
-//
-//        List<Integer> powaTable = new ArrayList<>();
-//        List<Long> powdTable = new ArrayList<>();
-//        List<Integer> powtTable = new ArrayList<>();
-//        calcPowTables(nw, powaTable, powdTable, powtTable);
-//        List<List<FP2SCTime>> fp2taskTable = new ArrayList<>();
-//        calcFp2taskTable(nw, fp2taskTable);
-//        oss.append(printTables(fp2taskTable, powaTable, powdTable, powtTable, tr, nw));
-//
-//        oss.append("--- Entering selection loop ---\n");
-//        int colNum = powaTable.size();
-//        String containerId = "NOT_FOUND";
-//        int maxNumToMinTruck = 0;
-//        long minScore = Long.MAX_VALUE;
-//        for (int i = 0; i < colNum; i++) {
-//            WorkQueue tqi = nw.getWorkQueues().get(i);
-//            oss.append("checking queue ").append(i).append(" [").append(tqi.getQueueName())
-//                    .append(" and max truck ").append(tqi.getMaxTruck())
-//                    .append("\n");
-//
-//            if (!tqi.verifyBinding(tr) || tqi.getTasks().isEmpty()) {
-//                continue;
-//            }
-//
-//            Task ti = tqi.getTasks().get(0);
-//            int numToMinTruck = Math.max(0 - powaTable.get(i), 0);
-//
-//            if (tqi.getMaxTruck() != -1 && powaTable.get(i) > tqi.getMaxTruck()) {
-//                continue;
-//            }
-//
-//            long trFp2srcTime = -1;
-//            long trFp2qcTime = -1;
-//            int fp2scRank = fp2scColRank(tr, fp2taskTable.get(i), trFp2srcTime, trFp2qcTime);
-//            if (fp2scRank < 0) {
-//                continue;
-//            }
-//
-//            trFp2srcTime = fp2taskTable.get(i).get(0).getTimesrc();
-//            long score = trFp2srcTime;
-//            if (powaTable.get(i) < 5) {
-//                score *= powaTable.get(i);
-//            } else {
-//                score += 100000;
-//            }
-//
-//            if (powtTable.get(i) >= 5 + 2 + 2) {
-//                score += 200000;
-//            }
-//
-//            if (containerId.equals("NOT_FOUND") || numToMinTruck > maxNumToMinTruck ||
-//                    (numToMinTruck == maxNumToMinTruck && minScore > score)) {
-//                maxNumToMinTruck = numToMinTruck;
-//                minScore = score;
-//                containerId = ti.getContainerID();
-//            }
-//        }
-//
-//        oss.append("--- exiting selection loop ---\n");
-//
-//        System.out.println(oss.toString());
-//
-//        msg.append(oss.toString());
-//        return containerId;
-//    }
 
     public static List findTaskMinWait(Network nw, Truck tr, StringBuilder msg, Task cuTask) {
         StringBuilder oss = new StringBuilder();
@@ -379,24 +311,16 @@ public class CraneSelect {
             for (int j = 0; j < tasks.size(); j++) {
                 Task task = tasks.get(j);
 
-                List<Task> splitTasks = new ArrayList<>();
-//                if (task.getTEUs() >= tr.getMaxTEU()) {
-//                    splitTasks = splitTask(task, tr.getRemainingTEU());
-//                } else {
-                    splitTasks.add(task);
-//                }
+                List<Task> srcTasks = new ArrayList<>();
+                if (task.getSrcNode().getType()==NodeType.QUAY_CRANE) srcTasks.add(task);
 
-                boolean splitTaskStatus = false;
-                if (splitTasks.size()>1){
-                    nw.getTasks().remove(task);
-                    nw.findWorkQueueByName(task.getSrcNode().getName()).getTasks().remove(task);
-                    splitTaskStatus = true;
+                if (srcTasks.size()==0){
+                    if (i == colNum-1) isSrcTaskFiniesh = true;
+                    else continue;
                 }
-                for (Task splitTask : splitTasks) {
-                    if (splitTaskStatus) {
-                        nw.getTasks().add(splitTask);
-                        nw.findWorkQueueByName(splitTask.getSrcNode().getName()).getTasks().add(splitTask);
-                    }
+
+                for (Task srcTask : srcTasks) {
+
                     int numToMinTruck = Math.max(0 - powaTable.get(i), 0);
 
                     if (tqi.getMaxTruck() != -1 && powaTable.get(i) > tqi.getMaxTruck()) {
@@ -426,8 +350,68 @@ public class CraneSelect {
                             (numToMinTruck == maxNumToMinTruck && minScore > score)) {
                         maxNumToMinTruck = numToMinTruck;
                         minScore = score;
-                        containerId = splitTask.getContainerID();
-                        tr.setRemainingTEU(tr.getMaxTEU()-splitTask.getTEUs());
+                        containerId = srcTask.getContainerID();
+                        tr.setRemainingTEU(tr.getMaxTEU()-srcTask.getTEUs());
+                    }
+                }
+            }
+        }
+
+        if (isSrcTaskFiniesh == true && containerId.equals("NOT_FOUND")){
+
+            for (int i = 0; i < colNum; i++) {
+                WorkQueue tqi = nw.getWorkQueues().get(i);
+                oss.append("checking queue ").append(i).append(" : ").append(tqi.getQueueName())
+                        .append(" and max truck ").append(tqi.getMaxTruck())
+                        .append("\n");
+
+                if (!tqi.verifyBinding(tr) || tqi.getTasks().isEmpty()) {
+                    continue;
+                }
+
+                List<Task> tasks = tqi.getTasks();
+                for (int j = 0; j < tasks.size(); j++) {
+                    Task task = tasks.get(j);
+
+                    List<Task> dstTasks = new ArrayList<>();
+                    if (task.getSrcNode().getType()==NodeType.YARD_CRANE) dstTasks.add(task);
+
+                    if (dstTasks.size()==0) continue;
+
+                    for (Task dstTask : dstTasks) {
+
+                        int numToMinTruck = Math.max(0 - powaTable.get(i), 0);
+
+                        if (tqi.getMaxTruck() != -1 && powaTable.get(i) > tqi.getMaxTruck()) {
+                            continue;
+                        }
+
+                        long trFp2srcTime = -1;
+                        long trFp2qcTime = -1;
+                        int fp2scRank = fp2scColRank(tr, fp2taskTable.get(i), trFp2srcTime, trFp2qcTime);
+                        if (fp2scRank < 0) {
+                            continue;
+                        }
+
+                        trFp2srcTime = fp2taskTable.get(i).get(0).getTimesrc();
+                        long score = trFp2srcTime;
+                        if (powaTable.get(i) < 3) {
+                            score += powaTable.get(i);
+                        } else {
+                            score += 100000;
+                        }
+
+                        if (powtTable.get(i) >= 3) {
+                            score += 200000;
+                        }
+
+                        if (containerId.equals("NOT_FOUND") || numToMinTruck > maxNumToMinTruck ||
+                                (numToMinTruck == maxNumToMinTruck && minScore > score)) {
+                            maxNumToMinTruck = numToMinTruck;
+                            minScore = score;
+                            containerId = dstTask.getContainerID();
+                            tr.setRemainingTEU(tr.getMaxTEU()-dstTask.getTEUs());
+                        }
                     }
                 }
             }
@@ -444,25 +428,5 @@ public class CraneSelect {
         return result;
     }
 
-    private static List<Task> splitTask(Task task, int capacity) {
-        int numTasks = (int) Math.ceil((double) task.getTEUs() / capacity);
-        int teusPerTask = task.getTEUs() / numTasks;
-        List<Task> splitTasks = new ArrayList<>();
-        for (int i = 0; i < numTasks; i++) {
-            Task splitTask = new Task();
-            splitTask.setContainerID("sub"+ i + task.getContainerID());
-            splitTask.setTEUs(teusPerTask);
-            splitTask.setSrcNode(task.getSrcNode());
-            splitTask.setDstNode(task.getDstNode());
-            splitTask.setQuayNode(task.getQuayNode());
-            splitTask.setLoadTime(task.getLoadTime());
-            splitTask.setUnloadTime(task.getUnloadTime());
-            splitTask.setSeq(task.getSeq());
-            splitTask.setWorkQueueName(task.getWorkQueueName());
-            splitTask.setSubqueueID(task.getSubqueueID());
-            splitTasks.add(splitTask);
-        }
-        return splitTasks;
-    }
 
 }
