@@ -21,6 +21,8 @@ public class Emulator {
     public static boolean outputInstructionHandling = true;
     public static int eventNum = 0;
     private static long FinalTime;
+    private static double BusyTime;
+    private static double TotalCraneOperationEndTime;
 
     public Network getNw() {
         return nw;
@@ -150,7 +152,7 @@ public class Emulator {
         }
     }
 
-    public static double startEmulator(String netfile, int numOfTrucks,Boolean isSameSrcTask) {
+    public static List startEmulator(String netfile, int numOfTrucks,Boolean isSameSrcTask) {
         initialiseEmulator();
 
         NetworkReader networkReader = new NetworkReader(netfile);
@@ -164,13 +166,15 @@ public class Emulator {
         }
 
         nw.addTrucks(2, numOfTrucks);
-        double ret;
-        ret = startEmulator(isSameSrcTask);
-        nw = null;
+        List ret = new ArrayList<>();
+        ret.add(0,FinalTime);
+        ret.add(1,BusyTime);
+        ret.add(2,TotalCraneOperationEndTime);
+        emuSolution = null;
         return ret;
     }
 
-    public static double startEmulator(Network simNetwork, List<PortEvent> emuEventsFi, Boolean isSameSrcTask) {
+    public static List startEmulator(Network simNetwork, List<PortEvent> emuEventsFi, Boolean isSameSrcTask) {
         initialiseEmulator();
         nw = simNetwork;
         emuEvents = new ArrayList<>(emuEventsFi);
@@ -186,7 +190,7 @@ public class Emulator {
         }
     }
 
-    private static double startEmulator(Boolean isSameSrcTask) {
+    private static List startEmulator(Boolean isSameSrcTask) {
         Dispatcher.setNw(nw);
         Dispatcher.setTimeProvider(new SimulatedTimeProvider());
         SA_Map sam = new SA_Map();
@@ -212,7 +216,10 @@ public class Emulator {
             eventNum++;
         }
         outputAnalysis(emuSolution, nw);
-        double ret = FinalTime;
+        List ret = new ArrayList<>();
+        ret.add(0,FinalTime);
+        ret.add(1,BusyTime);
+        ret.add(2,TotalCraneOperationEndTime);
         emuSolution = null;
         return ret;
     }
@@ -273,46 +280,50 @@ public class Emulator {
     }
 
     private static void printNodeAccessPointInformation(EvolutionFitness sol, Network nw) {
-//        long ftSum = 0;
-//        long btSum = 0;
-//        long ltSum = 0;
-//        for (Node node : nw.getNodes()) {
-//            if (node.getType() != NodeType.QUAY_CRANE || sol.getAccPoints().get(node.getNode_index()).isEmpty()) {
-//                continue;
-//            }
-//            System.out.println("Access points at " + node.getName() + ":");
-//            long freeTime = 0;
-//            long busyTime = 0;
-//            long prevFinishTime = 0;
-//            for (AccessPoint ap : sol.getAccPoints().get(node.getNode_index())) {
-//                if (prevFinishTime != ap.getTimeStart()) {
-//                    System.out.print("*");
-//                }
-//                System.out.print(ap.getTimeStart() + '-' + ap.getTimeFinish() + '('
-//                        + ap.getTask().getContainerID() + ':' + ap.getTask().getSrcNode().getName() + '-' + ap.getTask().getDstNode().getName());
-//                if (ap.getTask().getMergedTask() != null) {
-//                    System.out.print("  " + ap.getTask().getMergedTask().getContainerID() + ':'
-//                            + ap.getTask().getMergedTask().getSrcNode().getName() + '-' + ap.getTask().getMergedTask().getDstNode().getName());
-//                }
-//                System.out.print(") ");
-//                busyTime += (ap.getTimeFinish() - ap.getTimeStart());
-//                if (prevFinishTime != 0) {
-//                    freeTime += ap.getTimeStart() - prevFinishTime;
-//                }
-//                prevFinishTime = ap.getTimeFinish();
-//            }
-//            System.out.println("\nNode busy time: " + busyTime + " seconds, Total time: " + (freeTime + busyTime) + " seconds");
-//            ftSum += freeTime;
-//            btSum += busyTime;
-//            ltSum += sol.getAccPoints().get(node.getNode_index()).get(sol.getAccPoints().get(node.getNode_index()).size() - 1).getTimeFinish();
-//        }
-//        System.out.println("Total crane operation end time: " + ltSum);
-//        sol.setTotalCraneWait(ftSum);
-//        System.out.println("Total crane busy rate: " + calculateBusyRate(btSum, ftSum));
+        long ftSum = 0;
+        long btSum = 0;
+        long ltSum = 0;
+        for (Node node : nw.getNodes()) {
+            if (node.getType() != NodeType.QUAY_CRANE || sol.getAccPoints().get(node.getNode_index()).isEmpty()) {
+                continue;
+            }
+            System.out.println("Access points at " + node.getName() + ":");
+            long freeTime = 0;
+            long busyTime = 0;
+            long prevFinishTime = 0;
+            for (AccessPoint ap : sol.getAccPoints().get(node.getNode_index())) {
+                if (prevFinishTime != ap.getTimeStart()) {
+                    System.out.print("*");
+                }
+                System.out.print("  "+ap.getTimeStart() + '-' + ap.getTimeFinish() + '('
+                        + ap.getTask().getContainerID() + ':' + ap.getTask().getSrcNode().getName() + '-' + ap.getTask().getDstNode().getName() );
+                if (ap.getTask().getMergedTask() != null) {
+                    System.out.print("  " + ap.getTask().getMergedTask().getContainerID() + ':'
+                            + ap.getTask().getMergedTask().getSrcNode().getName() + '-' + ap.getTask().getMergedTask().getDstNode().getName());
+                }
+                System.out.print(") " +"\n");
+                busyTime += (ap.getTimeFinish() - ap.getTimeStart());
+                if (prevFinishTime != 0) {
+                    freeTime += ap.getTimeStart() - prevFinishTime;
+                }
+                prevFinishTime = ap.getTimeFinish();
+            }
+            System.out.println("\nNode busy time: " + busyTime + " seconds, Total time: " + (freeTime + busyTime) + " seconds");
+            ftSum += freeTime;
+            btSum += busyTime;
+            ltSum += sol.getAccPoints().get(node.getNode_index()).get(sol.getAccPoints().get(node.getNode_index()).size() - 1).getTimeFinish();
+        }
+        System.out.println("Total crane operation end time: " + ltSum);
+        sol.setTotalCraneWait(ftSum);
+        //BusyRate = calculateBusyRate(btSum, ftSum);
+        BusyTime = btSum;
+        TotalCraneOperationEndTime = ltSum;
+        System.out.println("Total crane busy time: " + btSum);
         System.out.println("Total travelling time: " + sol.getTotalTravellingTime());
         FinalTime = currentSimulationTime;
         System.out.println("Final travelling time: " + currentSimulationTime);
-        System.out.println("Result data: " + sol.getTotalTravellingTime() + '\t' + travellingTimeUpperbound() + '\t' + currentSimulationTime);
+        long travellingTimeUpperbound = travellingTimeUpperbound();
+        System.out.println("Result data: " + sol.getTotalTravellingTime() + '\t' + travellingTimeUpperbound + '\t' + FinalTime);
     }
 
     private static double calculateBusyRateAndReturn(EvolutionFitness sol) {
@@ -377,6 +388,7 @@ public class Emulator {
         truck.getCurrentTask().setDispatchLocation(truck.getCurrentPosition());
         truck.getCurrentTask().setDispatchTime(currentSimulationTime);
 
+
         // Calculate arrival time at ship crane
         long travelTime = nw.getTravellingTimePassingNodes(truck.getCurrentPosition(), ins.getTask().getSrcNode());
         long arrivalTime = currentSimulationTime + travelTime;
@@ -401,6 +413,8 @@ public class Emulator {
         Node destination = ins.getTask().getDstNode();
         if(ins.getTask().getSrcNode().getType() == NodeType.QUAY_CRANE)  destination = ins.getTask().getSrcNode();
 
+        truck.getCurrentPosition().setCurrentTask(null);
+        truck.getCurrentPosition().getTruckQueue().remove(truck);
         destination.getQueueTasks().add(destination.getQueueTasks().size(),ins.getTask());
         destination.getTruckQueue().add(truck);
         //destination.getQueueTasks().remove(ins.getTask());
@@ -422,6 +436,10 @@ public class Emulator {
         truck.setCurrentTask(ins.getTask());
         truck.getCurrentTask().setDispatchLocation(truck.getCurrentPosition());
         truck.getCurrentTask().setDispatchTime(currentSimulationTime);
+
+        if (truck.getCurrentPosition() == ins.getDst()) {
+            truck.getCurrentPosition().getTruckQueue().add(truck);
+        }
 
         // Calculate arrival time at yard
         long travelTime = nw.getTravellingTimePassingNodes(truck.getCurrentPosition(), ins.getTask().getSrcNode());
@@ -467,9 +485,10 @@ public class Emulator {
         Task task = ins.getTask();
         Node src = task.getSrcNode();
 
-        src.setCurrentTask(task);
+        truck.getCurrentPosition().setCurrentTask(task);
         truck.setStatus(TruckStatus.TRUCK_XSHIPPING);
         truck.setCurrentTask(task);
+        truck.getCurrentPosition().getTruckQueue().add(truck);
 
         task.setDispatchLocation(truck.getCurrentPosition());
         task.setDispatchTime(currentSimulationTime);
@@ -482,7 +501,7 @@ public class Emulator {
         sca.setTime(arrivalTime);
         sca.setType(EventType.CRANE_PUTTING_TO_VEHICLE_SUCCESS);
         sca.setTruck(truck);
-        sca.setEventLocation(src);
+        sca.setEventLocation(truck.getCurrentPosition());
         addEvent(sca);
     }
 
@@ -491,11 +510,22 @@ public class Emulator {
         Task task = truck.getCurrentTask();
         Node dst = task.getDstNode();
 
+        boolean taskFound = false;
+        if(emuSolution.findAccpointByNode(dst.getNode_index(),task)) {
+            taskFound = true;
+        }
+
+        if (taskFound == false) {
+            emuSolution.putTask(truck, task);
+        }
+
+
+        truck.getCurrentPosition().setCurrentTask(null);
+        truck.getCurrentPosition().getTruckQueue().remove(truck);
         truck.setStatus(TruckStatus.TRUCK_XSHIPPING);
+        truck.getCurrentPosition().getTruckQueue().remove(truck);
 
-        dst.getQueueTasks().remove(task);
-
-        long unloadTime = dst.getAverageUnloadTime();
+        long unloadTime = task.getUnloadTime();
         long arrivalTime = currentSimulationTime + unloadTime;
 
         PortEvent yae = new PortEvent();
@@ -511,15 +541,25 @@ public class Emulator {
         Task task = ins.getTask();
         Node src = task.getSrcNode();
 
+        boolean taskFound = false;
+        if(emuSolution.findAccpointByNode(src.getNode_index(),task)) {
+            taskFound = true;
+        }
+
+        if (taskFound == false) {
+            emuSolution.putTask(truck, task);
+        }
+
         truck.setStatus(TruckStatus.TRUCK_XSHIPPING);
         truck.setCurrentTask(task);
-        src.getQueueTasks().remove(task);
-        src.setCurrentTask(null);
+        truck.getCurrentPosition().getTruckQueue().remove(truck);
+        truck.getCurrentPosition().setCurrentTask(null);
+        truck.getCurrentPosition().getQueueTasks().remove(task);
 
         task.setDispatchLocation(truck.getCurrentPosition());
         task.setDispatchTime(currentSimulationTime);
 
-        long loadTime = src.getAverageLoadTime();
+        long loadTime = task.getLoadTime();
         long arrivalTime = currentSimulationTime + loadTime;
 
         PortEvent sca = new PortEvent();
@@ -536,8 +576,9 @@ public class Emulator {
         Node dst = task.getDstNode();
         truck.setStatus(TruckStatus.TRUCK_XSHIPPING);
 
-        dst.getQueueTasks().remove(task);
-
+        truck.getCurrentPosition().getQueueTasks().remove(task);
+        truck.getCurrentPosition().setCurrentTask(null);
+        truck.getCurrentPosition().getTruckQueue().add(truck);
 
         long travelTime = nw.getTravellingTimePassingNodes(truck.getCurrentPosition(), dst);
         long arrivalTime = currentSimulationTime + travelTime;
@@ -566,8 +607,8 @@ public class Emulator {
 
                 for (int j = 0; j < eventNum; j++) {
                     PortEvent currentEvent = emuEvents.get(j);
-                    if ((currentEvent.getType() == EventType.CRANE_UNLOADING_FROM_VEHICLE_SUCCESS || currentEvent.getType() == EventType.CRANE_PUTTING_TO_VEHICLE_SUCCESS)
-                            && currentEvent.getEventLocation() == destination) {
+                    if (currentEvent.getType() == EventType.CRANE_PUTTING_TO_VEHICLE_SUCCESS &&
+                            currentEvent.getEventLocation() == destination) {
                         long currentTime = currentEvent.getTime();
                         if (currentTime > maxTime) {
                             maxTime = currentTime;
@@ -576,26 +617,17 @@ public class Emulator {
                     }
                 }
 
-                if(maxIndex==-1){
-                    for (int j = eventNum-1 ; j>0; j--){
-                        if ((emuEvents.get(j).getType()== EventType.QC_WORKING_POINT_ARRIVAL)
-                                &&emuEvents.get(j).getEventLocation() ==destination){
-                            long waitTime = emuEvents.get(j).getTime() + destination.getAverageLoadTime();
-
-                            task.setDispatchTime(waitTime);
-
-                            PortEvent yae = new PortEvent();
-                            yae.setTime(waitTime);
-                            yae.setType(EventType.CRANE_PUTTING_TO_VEHICLE_SUCCESS);
-                            yae.setTruck(truck);
-                            yae.setEventLocation(destination);
-                            addEvent(yae);
-                            break;
+                if(maxIndex==-1) {
+                    for (int j = 0; j < eventNum; j++) {
+                        if ((emuEvents.get(j).getType() == EventType.QC_WORKING_POINT_ARRIVAL) && emuEvents.get(j).getEventLocation() == destination) {
+                            long currentTime = emuEvents.get(j).getTime();
+                            if (currentTime > maxTime) {
+                                maxTime = currentTime;
+                                maxIndex = j;
+                            }
                         }
-
                     }
                 }
-
                 if (maxIndex != -1) {
                     PortEvent maxEvent = emuEvents.get(maxIndex);
                     long waitTime = maxEvent.getTime() + destination.getAverageLoadTime();
@@ -616,33 +648,53 @@ public class Emulator {
                 int maxIndex = -1;
                 long maxTime = Long.MIN_VALUE;
 
+                int maxIndex1 = -1;
+                long maxTime1 = Long.MIN_VALUE;
                 for (int j = 0; j < eventNum; j++) {
                     PortEvent currentEvent = emuEvents.get(j);
-                    if ((currentEvent.getType() == EventType.CRANE_UNLOADING_FROM_VEHICLE_SUCCESS || currentEvent.getType() == EventType.CRANE_PUTTING_TO_VEHICLE_SUCCESS)
-                            && currentEvent.getEventLocation() == destination) {
+                    if (currentEvent.getType() == EventType.CRANE_UNLOADING_FROM_VEHICLE_SUCCESS &&
+                            currentEvent.getEventLocation() == destination) {
                         long currentTime = currentEvent.getTime();
-                        if (currentTime > maxTime) {
-                            maxTime = currentTime ;
-                            maxIndex = j;
+                        if (currentTime > maxTime1) {
+                            maxTime1 = currentTime;
+                            maxIndex1 = j;
                         }
                     }
                 }
 
+
+                int maxIndex2 = -1;
+                long maxTime2 = Long.MIN_VALUE;
+                for (int j = 0; j < eventNum; j++) {
+                    PortEvent currentEvent = emuEvents.get(j);
+                    if (currentEvent.getType() == EventType.CRANE_PUTTING_TO_VEHICLE_SUCCESS &&
+                            currentEvent.getEventLocation() == destination) {
+                        long currentTime = currentEvent.getTime();
+                        if (currentTime > maxTime2) {
+                            maxTime2 = currentTime;
+                            maxIndex2 = j;
+                        }
+                    }
+                }
+
+                if (maxIndex2>maxIndex1){
+                    maxIndex= maxIndex2;
+                    maxTime = maxTime2;
+                }
+                else {
+                    maxIndex= maxIndex1;
+                    maxTime = maxTime1;
+                }
+
                 if (maxIndex == -1) {
-                    for (int j = eventNum-1 ; j>0; j--){
+                    for (int j = 0 ; j<eventNum; j++){
                         if ((emuEvents.get(j).getType()== EventType.YC_WORKING_POINT_ARRIVAL)
                                 && emuEvents.get(j).getEventLocation() == destination){
-                            long waitTime = emuEvents.get(j).getTime() + destination.getAverageUnloadTime();
-
-                            task.setDispatchTime(waitTime);
-
-                            PortEvent yae = new PortEvent();
-                            yae.setTime(waitTime);
-                            yae.setType(EventType.CRANE_UNLOADING_FROM_VEHICLE_SUCCESS);
-                            yae.setTruck(truck);
-                            yae.setEventLocation(destination);
-                            addEvent(yae);
-                            break;
+                            long currentTime = emuEvents.get(j).getTime();
+                            if (currentTime > maxTime) {
+                                maxTime = currentTime;
+                                maxIndex = j;
+                            }
                         }
                     }
                 }
@@ -748,6 +800,7 @@ public class Emulator {
 
     private static void triggerYardCraneWorkingPointArrivalEvent(PortEvent event_i) {
         Truck truck = event_i.getTruck();
+
         updateTruckTravellingTime(truck,
                 nw.getTravellingTimePassingNodes(truck.getCurrentPosition(),event_i.getEventLocation()));
 
@@ -800,24 +853,24 @@ public class Emulator {
     private static void triggerCranePuttingToVehicleSuccessEvent(PortEvent event_i) {
         Truck truck = event_i.getTruck();
         //if (truck.getCurrentTask().getQuayNode() == event_i.getEventLocation()) {
-            //removeFromContainerQueue(truck.getCurrentTask());
+        //removeFromContainerQueue(truck.getCurrentTask());
 
 
-            StringBuilder sb = new StringBuilder();
-            sb.append("\ttruck: \t").append(truck.getTruckID());
-            if (event_i.getTime() == truck.getCurrentTask().getSrcArrival()&&event_i.getTime() == truck.getCurrentTask().getDispatchTime()){
-                sb.append("\ttoke: \t").append(truck.getCurrentTask().getContainerID());
-            }else{
-                if(event_i.getEventLocation() == truck.getCurrentTask().getSrcNode()&&truck.getCurrentTask().getMergedTask()!=null
-                && event_i.getTime() != truck.getCurrentTask().getDispatchTime()) {
-                    sb.append("\ttoke: \t").append(truck.getCurrentTask().getMergedTask().getContainerID());
-                }
-                else sb.append("\ttoke: \t").append(truck.getCurrentTask().getContainerID());
+        StringBuilder sb = new StringBuilder();
+        sb.append("\ttruck: \t").append(truck.getTruckID());
+        if (event_i.getTime() == truck.getCurrentTask().getSrcArrival()&&event_i.getTime() == truck.getCurrentTask().getDispatchTime()){
+            sb.append("\ttoke: \t").append(truck.getCurrentTask().getContainerID());
+        }else{
+            if(event_i.getEventLocation() == truck.getCurrentTask().getSrcNode()&&truck.getCurrentTask().getMergedTask()!=null
+                    && event_i.getTime() != truck.getCurrentTask().getDispatchTime()) {
+                sb.append("\ttoke: \t").append(truck.getCurrentTask().getMergedTask().getContainerID());
             }
+            else sb.append("\ttoke: \t").append(truck.getCurrentTask().getContainerID());
+        }
 
-            if (outputEventTriggerInfo) {
-                System.out.println(sb);
-            }
+        if (outputEventTriggerInfo) {
+            System.out.println(sb);
+        }
 
 //            event_i.getEventLocation().setCurrentTask(null);
         //}
@@ -908,6 +961,7 @@ public class Emulator {
 
     private static void triggerCranePuttingToVehicleFinishEvent(PortEvent event_i) {
         Truck truck = event_i.getTruck();
+
         if (truck.getCurrentTask().getSrcNode() == event_i.getEventLocation()) {
             removeFromContainerQueue(truck.getCurrentTask());
 
@@ -950,6 +1004,7 @@ public class Emulator {
             return;
         }
 
+        int j = -1;
         for (int i = 0; i < emuEvents.size(); i++) {
             PortEvent existingEvent = emuEvents.get(i);
             if (pe.getTime() < existingEvent.getTime()) {
@@ -959,7 +1014,8 @@ public class Emulator {
             }
             if (pe.getTime() == existingEvent.getTime()) {
                 if ((existingEvent.getType() == EventType.CRANE_PUTTING_TO_VEHICLE_SUCCESS ||
-                        existingEvent.getType() == EventType.CRANE_UNLOADING_FROM_VEHICLE_SUCCESS) &&
+                        existingEvent.getType() == EventType.CRANE_UNLOADING_FROM_VEHICLE_SUCCESS ||
+                        existingEvent.getType() == EventType.QC_WORKING_POINT_ARRIVAL) &&
                         pe.getType() != EventType.TASK_IMPORT &&
                         existingEvent.getTruck().equals(pe.getTruck()) &&
                         existingEvent.getEventLocation().equals(pe.getEventLocation())) {
@@ -971,13 +1027,24 @@ public class Emulator {
                     emuEvents.add(i, pe);
                     return;
                 } else if (existingEvent.getType() == pe.getType()) {
-                    emuEvents.add(i, pe);
-                    return;
+                    j = i;
+                    for (int k = i + 1; k < emuEvents.size(); k++) {
+                        PortEvent nextEvent = emuEvents.get(k);
+                        if (nextEvent.getTruck().equals(pe.getTruck())||existingEvent.getEventLocation().equals(pe.getEventLocation())) {
+                            j = k;
+                            break;
+                        }
+                    }
                 }
             }
         }
-        emuEvents.add(pe);
+        if (j != -1) {
+            emuEvents.add(j, pe);
+        } else {
+            emuEvents.add(pe);
+        }
     }
+
 
     private static void checkEventPrecedence(PortEvent pe, int currentIndex) {
         if (pe.getType() != EventType.TASK_IMPORT) {
@@ -993,9 +1060,4 @@ public class Emulator {
             }
         }
     }
-
-
 }
-
-
-

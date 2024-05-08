@@ -134,6 +134,20 @@ public class EvolutionFitness {
         }
     }
 
+    public boolean findAccpointByNode(int node_index, Task task){
+        for (int i = 0; i < accPoints.get(node_index).size(); i++) {
+            if (accPoints.get(node_index).get(i).getTask() == task) return true;
+        }
+        return false;
+    }
+
+    public boolean CheckRouteTruck(){
+        for (int i = 0; i < routes.size(); i++) {
+            if(routes.get(i).getTr() !=null) return true;
+        }
+        return false;
+    }
+
     public void insertAP(Node n, long arrivalTime, long len, AccessPoint ap, List<List<AccessPoint>> accPoints, long currentTime) {
         long baseIfp = Math.max(arrivalTime, currentTime);
         List<AccessPoint> aps = accPoints.get(n.getNode_index());
@@ -154,6 +168,7 @@ public class EvolutionFitness {
                 ap.setTimeStart(baseIfp);
                 ap.setTimeFinish(ap.getTimeStart() + len);
                 aps.add(ap);
+
                 return;
             } else {
                 if (aps.get(i + 1).getTimeStart() - baseIfp > len) {
@@ -172,31 +187,55 @@ public class EvolutionFitness {
 
     // 计算访问点信息（根据是源节点还是目标节点）
     public void calcAccessPoint(boolean isSrcNode, Task ta, Truck tr, AccessPoint ap, List<List<AccessPoint>> accPoints, long currentTime) {
-        ap.setTask(ta);
-        ap.setTruck(tr);
-
-        long arrivalTime, len;
-        if (isSrcNode) {
-            arrivalTime = ta.getSrcArrival();
-            len = ta.getLoadTime();
-        } else {
-            arrivalTime = ta.getDstArrival();
-            len = ta.getUnloadTime();
-        }
-
-        Node n = isSrcNode ? ta.getSrcNode() : ta.getDstNode();
-        if (n.getType() == NodeType.QUAY_CRANE && ta.getAbove() != null) {
-            Task above = ta.getAbove();
-            if (above.getSrcNode() == n) {
-                long t = above.getSrcAp().getTimeFinish();
-                arrivalTime = Math.max(arrivalTime, t);
+        if (ap.getTask()==ta) {
+            ap.setTask(ta);
+            ap.setTruck(tr);
+            long arrivalTime, len;
+            if (isSrcNode) {
+                arrivalTime = ta.getSrcArrival();
+                len = ta.getLoadTime();
             } else {
-                long t = above.getDstAp().getTimeFinish();
-                arrivalTime = Math.max(arrivalTime, t);
+                arrivalTime = ta.getDstArrival();
+                len = ta.getUnloadTime();
             }
-        }
 
-        insertAP(n, arrivalTime, len, ap, accPoints, currentTime);
+            Node n = isSrcNode ? ta.getSrcNode() : ta.getDstNode();
+            if (n.getType() == NodeType.QUAY_CRANE && ta.getAbove() != null) {
+                Task above = ta.getAbove();
+                if (above.getSrcNode() == n) {
+                    long t = above.getSrcAp().getTimeFinish();
+                    arrivalTime = Math.max(arrivalTime, t);
+                } else {
+                    long t = above.getDstAp().getTimeFinish();
+                    arrivalTime = Math.max(arrivalTime, t);
+                }
+            }
+            insertAP(n, arrivalTime, len, ap, accPoints, currentTime);
+        }else{
+            long arrivalTime, len;
+            if (isSrcNode) {
+                arrivalTime = ta.getSrcArrival();
+                len = ta.getLoadTime();
+            } else {
+                arrivalTime = ta.getDstArrival();
+                len = ta.getUnloadTime();
+            }
+
+            Node n = isSrcNode ? ta.getSrcNode() : ta.getDstNode();
+            if (n.getType() == NodeType.QUAY_CRANE && ta.getAbove() != null) {
+                Task above = ta.getAbove();
+                if (above.getSrcNode() == n) {
+                    long t = above.getSrcAp().getTimeFinish();
+                    arrivalTime = Math.max(arrivalTime, t);
+                } else {
+                    long t = above.getDstAp().getTimeFinish();
+                    arrivalTime = Math.max(arrivalTime, t);
+                }
+            }
+
+            AccessPoint Nap = new AccessPoint(ap.getTimeStart(),ap.getTimeFinish(),ta,tr);
+            insertAP(n, arrivalTime, len, Nap, accPoints, currentTime);
+        }
     }
 
     // 更新合并任务的时间信息
@@ -228,13 +267,13 @@ public class EvolutionFitness {
     public void putTask(Truck tr, Task ta) {
         long dispatchTime = currentTime;
         Node lastNode = null;
-        if (!routes.get(tr.getTruckIndex()).getTasks().isEmpty()) {
-            lastNode = routes.get(tr.getTruckIndex()).getTasks().get(routes.get(tr.getTruckIndex()).getTasks().size() - 1).getDstNode();
+        if (!routes.get(tr.getTruckIndex()-1).getTasks().isEmpty()) {
+            lastNode = routes.get(tr.getTruckIndex()-1).getTasks().get(routes.get(tr.getTruckIndex()-1).getTasks().size() - 1).getDstNode();
             dispatchTime = craneIdleTime(lastNode, accPoints, currentTime);
         }
 
         for (Task ti = ta, pt = null; ti != null; pt = ti, ti = ti.getMergedTask()) {
-            if (pt != null && pt.getSrcNode() == ti.getSrcNode()) continue;
+            if (ti == null&pt != null && pt.getSrcNode() == ti.getSrcNode()) continue;
 
             Node srci = ti.getSrcNode();
             if (lastNode != null) {
@@ -247,7 +286,7 @@ public class EvolutionFitness {
         }
 
         for (Task ti = ta, pt = null; ti != null; pt = ti, ti = ti.getMergedTask()) {
-            if (pt != null && pt.getDstNode() == ti.getDstNode()) continue;
+            if (ti == null&pt != null && pt.getDstNode() == ti.getDstNode()) continue;
 
             Node dsti = ti.getDstNode();
             ti.setDstArrival(nw.getTravellingTimePassingNodes(lastNode, dsti));
@@ -256,7 +295,7 @@ public class EvolutionFitness {
         }
 
         updateMergedTimes(ta);
-        routes.get(tr.getTruckIndex()).getTasks().add(ta);
+        routes.get(tr.getTruckIndex()-1).getTasks().add(ta);
     }
 
     // 移除指定节点的访问点

@@ -314,11 +314,6 @@ public class CraneSelect {
                 List<Task> srcTasks = new ArrayList<>();
                 if (task.getSrcNode().getType()==NodeType.QUAY_CRANE) srcTasks.add(task);
 
-                if (srcTasks.size()==0){
-                    if (i == colNum-1) isSrcTaskFiniesh = true;
-                    else continue;
-                }
-
                 for (Task srcTask : srcTasks) {
 
                     int numToMinTruck = Math.max(0 - powaTable.get(i), 0);
@@ -354,7 +349,12 @@ public class CraneSelect {
                         tr.setRemainingTEU(tr.getMaxTEU()-srcTask.getTEUs());
                     }
                 }
+                if (srcTasks.size()==0){
+                    if (i <= colNum-1) isSrcTaskFiniesh = true;
+                    else continue;
+                }
             }
+
         }
 
         if (isSrcTaskFiniesh == true && containerId.equals("NOT_FOUND")){
@@ -419,6 +419,7 @@ public class CraneSelect {
 
         oss.append("--- exiting selection loop ---\n");
 
+        isSrcTaskFiniesh = false;
         System.out.println(oss.toString());
 
         msg.append(oss.toString());

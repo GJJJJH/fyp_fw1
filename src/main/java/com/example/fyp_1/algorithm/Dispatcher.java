@@ -159,17 +159,17 @@ public class Dispatcher {
 
             Instruction inst = null;
             if(nodes.get(pe.getEventLocation().getNode_index()).getCurrentTask()!=null ){
-                    inst = new Instruction(InstructionType.HOLD, pe.getTruck(), pe.getTruck().getCurrentPosition(),cuTask);
-                }
+                inst = new Instruction(InstructionType.HOLD, pe.getTruck(), pe.getTruck().getCurrentPosition(),cuTask);
+            }
             else {
                 if (cuTask.getSrcNode() == pe.getEventLocation()) {
                     //if (nodes.get(pe.getEventLocation().getNode_index()).getCurrentTask()!=null) {
-                        nodes.get(pe.getEventLocation().getNode_index()).setCurrentTask(cuTask);
+                    nodes.get(pe.getEventLocation().getNode_index()).setCurrentTask(cuTask);
                     //}
                     inst = new Instruction(InstructionType.PUT_CONTAINER_TO_TRUCK_FINISH, pe.getTruck(), pe.getTruck().getCurrentPosition(), cuTask);
                 } else {
                     //if (nodes.get(pe.getEventLocation().getNode_index()).getCurrentTask()!=null) {
-                        nodes.get(pe.getEventLocation().getNode_index()).setCurrentTask(cuTask);
+                    nodes.get(pe.getEventLocation().getNode_index()).setCurrentTask(cuTask);
                     //}
                     inst = new Instruction(InstructionType.TAKE_CONTAINER_FROM_TRUCK_FINISH, pe.getTruck(), pe.getTruck().getCurrentPosition(), cuTask);
                 }
@@ -425,6 +425,7 @@ public class Dispatcher {
         System.out.println("!!!!" + resultContainerId);
         System.out.println("-----------------------------------");
 
+
         convertToInstruction(nw, resultContainerId, tr, true, insts);
 
 //        Task firstTask = nw.findTask(resultContainerId);
@@ -675,7 +676,7 @@ public class Dispatcher {
                 instructionToString(insi);
             }
         }else if (nw.getTasks()!=null){
-            pe.getEventLocation().getTruckQueue().remove(tr);
+            tr.getCurrentPosition().getTruckQueue().remove(tr);
             getInstruction(tr, timeProvider.getCurrentTime(), instructions);
             Instruction insi = instructions.get(instructions.size() - 1);
             if (insi.getInsCode() != InstructionType.HOLD) {
@@ -704,7 +705,7 @@ public class Dispatcher {
                 instructionToString(inst);
                 return;
             }else if (task.getMergedTask() != null
-                    && task.getMergedTask().status() <= 5
+                    && task.getMergedTask().getDispatchTime()==0
                     && pe.getTime() == task.getLoadTime()+task.getDispatchTime()) {
                 task.getSrcNode().setCurrentTask(null);
                 tr.setPreTask(task);
@@ -820,17 +821,15 @@ public class Dispatcher {
             }
             network.linkTaskPrecedence(false);
             if (nextTask.getSrcNode().getType() == NodeType.QUAY_CRANE) {
-                nextTask.getSrcNode().getQueueTasks().add(nextTask);
+//                nextTask.getSrcNode().getQueueTasks().add(nextTask);
                 nextTask.getSrcNode().getTruckQueue().add(tr);
-                nextTask.getSrcNode().getQueueTasks().add(nextTask);
                 Instruction inst = new Instruction(InstructionType.DEADHEAD_TO_QUAY_CRANE,
                         tr, nextTask.getSrcNode(), nextTask);
                 insts.add(inst);
                 return;
             } else {
                 nextTask.getSrcNode().getQueueTasks().add(nextTask);
-                nextTask.getSrcNode().getTruckQueue().add(tr);
-                nextTask.getSrcNode().getTruckQueue().add(tr);
+//                nextTask.getSrcNode().getTruckQueue().add(tr);
                 Instruction inst = new Instruction(InstructionType.DEADHEAD_TO_YARD_CRANE,
                         tr, nextTask.getSrcNode(), nextTask);
                 insts.add(inst);
